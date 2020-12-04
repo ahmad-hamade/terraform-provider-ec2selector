@@ -1,56 +1,36 @@
-.DEFAULT_GOAL := build
-OS            := $(shell go env GOOS)
-ARCH          := $(shell go env GOARCH)
-PLUGIN_PATH   ?= ${HOME}/.terraform.d/plugins/${OS}_${ARCH}
-PLUGIN_NAME   := terraform-provider-ec2selector
-DIST_PATH     := dist/${OS}_${ARCH}
-GO_PACKAGES   := $(shell go list ./... | grep -v /vendor/)
-GO_FILES      := $(shell find . -type f -name '*.go')
+TEST?=$$(go list ./... | grep -v 'vendor')
+HOSTNAME=hamade.me
+NAME=ec2selector
+BINARY=terraform-provider-${NAME}
+VERSION=0.1.0
+OS_ARCH=darwin_amd64
 
+default: install
 
-.PHONY: all
-all: test build
+build:
+	go build -o ${BINARY}
 
-.PHONY: test
-test: test-all
+release:
+	GOOS=darwin GOARCH=amd64 go build -o ./bin/${BINARY}_${VERSION}_darwin_amd64
+	GOOS=freebsd GOARCH=386 go build -o ./bin/${BINARY}_${VERSION}_freebsd_386
+	GOOS=freebsd GOARCH=amd64 go build -o ./bin/${BINARY}_${VERSION}_freebsd_amd64
+	GOOS=freebsd GOARCH=arm go build -o ./bin/${BINARY}_${VERSION}_freebsd_arm
+	GOOS=linux GOARCH=386 go build -o ./bin/${BINARY}_${VERSION}_linux_386
+	GOOS=linux GOARCH=amd64 go build -o ./bin/${BINARY}_${VERSION}_linux_amd64
+	GOOS=linux GOARCH=arm go build -o ./bin/${BINARY}_${VERSION}_linux_arm
+	GOOS=openbsd GOARCH=386 go build -o ./bin/${BINARY}_${VERSION}_openbsd_386
+	GOOS=openbsd GOARCH=amd64 go build -o ./bin/${BINARY}_${VERSION}_openbsd_amd64
+	GOOS=solaris GOARCH=amd64 go build -o ./bin/${BINARY}_${VERSION}_solaris_amd64
+	GOOS=windows GOARCH=386 go build -o ./bin/${BINARY}_${VERSION}_windows_386
+	GOOS=windows GOARCH=amd64 go build -o ./bin/${BINARY}_${VERSION}_windows_amd64
 
-.PHONY: test-all
-test-all:
-	@TF_ACC=1 go test -v -race $(GO_PACKAGES)
-
-${DIST_PATH}/${PLUGIN_NAME}: ${GO_FILES}
-	mkdir -p $(DIST_PATH); \
-	go build -o $(DIST_PATH)/${PLUGIN_NAME}
-
-.PHONY: build
-build: ${DIST_PATH}/${PLUGIN_NAME}
-
-.PHONY: install
 install: build
-	mkdir -p $(PLUGIN_PATH); \
-	rm -rf $(PLUGIN_PATH)/${PLUGIN_NAME}; \
-	install -m 0755 $(DIST_PATH)/${PLUGIN_NAME} $(PLUGIN_PATH)/${PLUGIN_NAME}
+	mkdir -p ~/.terraform.d/plugins/${HOSTNAME}/edu/${NAME}/${VERSION}/${OS_ARCH}
+	mv ${BINARY} ~/.terraform.d/plugins/${HOSTNAME}/edu/${NAME}/${VERSION}/${OS_ARCH}
 
-# Set TF_LOG=DEBUG to enable debug logs from the provider
-# Setting TF_LOG_PATH would also help
-.PHONY: example/plan
-example/plan:
-	mkdir -p examples/terraform.d/plugins
-	env PLUGIN_PATH=examples/terraform.d/plugins/$(OS)_$(ARCH) make install
-	cd examples; terraform init; terraform plan
+test: 
+	go test -i $(TEST) || exit 1                                                   
+	echo $(TEST) | xargs -t -n4 go test $(TESTARGS) -timeout=30s -parallel=4                    
 
-.PHONY: example/apply
-example/apply:
-	mkdir -p examples/terraform.d/plugins
-	env PLUGIN_PATH=examples/terraform.d/plugins/$(OS)_$(ARCH) make install
-	cd examples; terraform init; terraform apply
-
-.PHONY: example/destroy
-example/destroy:
-	mkdir -p examples/terraform.d/plugins
-	env PLUGIN_PATH=examples/terraform.d/plugins/$(OS)_$(ARCH) make install
-	cd examples; terraform init; terraform destroy
-
-.PHONY: clean
-clean:
-	rm -rf ${DIST_PATH}/*
+testacc: 
+	TF_ACC=1 go test $(TEST) -v $(TESTARGS) -timeout 120m   

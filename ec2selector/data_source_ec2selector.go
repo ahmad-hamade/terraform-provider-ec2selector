@@ -65,8 +65,8 @@ func dataSourceInstancesRead(ctx context.Context, d *schema.ResourceData, m inte
 	memoryRange := &selector.ByteQuantityRangeFilter{}
 	if v, ok := d.GetOk("memory"); ok {
 		memoryRange = &selector.ByteQuantityRangeFilter{
-			LowerBound: bytequantity.FromGiB(v.(uint64)),
-			UpperBound: bytequantity.FromGiB(v.(uint64)),
+			LowerBound: bytequantity.FromGiB(uint64(v.(int))),
+			UpperBound: bytequantity.FromGiB(uint64(v.(int))),
 		}
 	} else {
 		memoryRange = nil
